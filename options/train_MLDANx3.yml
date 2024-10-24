@@ -1,0 +1,104 @@
+name: MLDAN_CTx3
+model_type: SRModel
+scale: 3 # 3/4
+num_gpu: 1 # or 4
+manual_seed: 10
+
+datasets:
+  train:
+    name: train_COVID-CT
+    type: PairedImageDataset
+    dataroot_gt: datasets/train_GTmod12
+    dataroot_lq: datasets/train_lr_x3
+    filename_tmpl: '{}'
+    io_backend:
+      type: disk
+
+    gt_size: 144 #scale*48 or scale*64
+    use_hflip: true
+    use_rot: true
+
+    # data loader
+    use_shuffle: true
+    num_worker_per_gpu: 6
+    batch_size_per_gpu: 4
+    dataset_enlarge_ratio: 1
+    prefetch_mode: ~
+
+  val:
+    name: val_COVID-CT
+    type: PairedImageDataset
+    dataroot_gt: datasets/val/GTmod12
+    dataroot_lq: datasets/val/val_lr_x3
+    io_backend:
+      type: disk
+
+
+# network structures
+network_g:
+  type: MLDAN
+  scale: 3 #or 3/4
+  n_resblocks: 5 # 5 for MLDAN; 24 for MLDAN+
+  n_resgroups: 1
+  n_feats: 48   # 48 for MLDAN; 60 for MLDAN+
+
+# path
+path:
+  pretrain_network_g: ~
+  strict_load_g: true
+  resume_state: ~
+
+# training settings
+train:
+  ema_decay: 0.999
+  optim_g:
+    type: Adam
+    lr: !!float 2e-4
+    weight_decay: 0
+    betas: [0.9, 0.99]
+
+  scheduler:
+    type: MultiStepLR
+    milestones: [250000, 400000, 450000, 475000]
+    gamma: 0.5
+
+  total_iter: 550000
+  warmup_iter: -1  # no warm up
+
+  # losses
+  pixel_opt:
+    type: L1Loss
+    loss_weight: 1.0
+    reduction: mean
+
+# validation settings
+val:
+  val_freq: !!float 5e3
+  save_img: false
+  pbar: False
+
+  metrics:
+    psnr:
+      type: calculate_psnr
+      crop_border: 3 # 3/4
+      test_y_channel: true
+      better: higher  # the higher, the better. Default: higher
+    ssim:
+      type: calculate_ssim
+      crop_border: 3 # 3/4
+      test_y_channel: true
+      better: higher  # the higher, the better. Default: higher
+
+# logging settings
+logger:
+  print_freq: 100
+  save_checkpoint_freq: !!float 5e3
+  use_tb_logger: true
+  wandb:
+    project: ~
+    resume_id: ~
+
+# dist training settings
+dist_params:
+  backend: nccl
+  port: 29500
