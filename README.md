@@ -54,6 +54,7 @@ Results of our MLDAN.
 <p align="center">
     <img src="images/Visual_Results/figure1.jpg" width="960"><br />
 </p>
+
 ## Acknowledgements
 
 We would thank [LSKA](https://github.com/StevenLauHKHK/Large-Separable-Kernel-Attention) and [BasicSR](https://github.com/XPixelGroup/BasicSR) for their enlightening work!
