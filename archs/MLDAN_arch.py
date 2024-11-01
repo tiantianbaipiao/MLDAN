@@ -2,7 +2,6 @@
 import torch
 import torch.nn as nn
 from basicsr.utils.registry import ARCH_REGISTRY
-from thop import profile
 from torchvision.ops import DeformConv2d
 
 
@@ -109,9 +108,11 @@ class MLDA(nn.Module):
                       groups=num_features // 3),
             nn.Conv2d(num_features // 3, num_features // 3, kernel_size=(7, 1), stride=(1, 1), padding=(7 // 2, 0),
                       groups=num_features // 3),
-            nn.Conv2d(num_features // 3, num_features // 3, kernel_size=(1, 9), stride=(1, 1), padding=(0, (9 // 2) * 4),
+            nn.Conv2d(num_features // 3, num_features // 3, kernel_size=(1, 9), stride=(1, 1),
+                      padding=(0, (9 // 2) * 4),
                       groups=num_features // 3, dilation=4),
-            nn.Conv2d(num_features // 3, num_features // 3, kernel_size=(9, 1), stride=(1, 1), padding=((9 // 2) * 4, 0),
+            nn.Conv2d(num_features // 3, num_features // 3, kernel_size=(9, 1), stride=(1, 1),
+                      padding=((9 // 2) * 4, 0),
                       groups=num_features // 3, dilation=4),
             nn.Conv2d(num_features // 3, num_features // 3, 1, 1, 0)
         )
@@ -120,9 +121,11 @@ class MLDA(nn.Module):
                       groups=num_features // 3),
             nn.Conv2d(num_features // 3, num_features // 3, kernel_size=(5, 1), stride=(1, 1), padding=(5 // 2, 0),
                       groups=num_features // 3),
-            nn.Conv2d(num_features // 3, num_features // 3, kernel_size=(1, 7), stride=(1, 1), padding=(0, (7 // 2) * 3),
+            nn.Conv2d(num_features // 3, num_features // 3, kernel_size=(1, 7), stride=(1, 1),
+                      padding=(0, (7 // 2) * 3),
                       groups=num_features // 3, dilation=3),
-            nn.Conv2d(num_features // 3, num_features // 3, kernel_size=(7, 1), stride=(1, 1), padding=((7 // 2) * 3, 0),
+            nn.Conv2d(num_features // 3, num_features // 3, kernel_size=(7, 1), stride=(1, 1),
+                      padding=((7 // 2) * 3, 0),
                       groups=num_features // 3, dilation=3),
             nn.Conv2d(num_features // 3, num_features // 3, 1, 1, 0)
         )
@@ -131,9 +134,11 @@ class MLDA(nn.Module):
                       groups=num_features // 3),
             nn.Conv2d(num_features // 3, num_features // 3, kernel_size=(3, 1), stride=(1, 1), padding=(1, 0),
                       groups=num_features // 3),
-            nn.Conv2d(num_features // 3, num_features // 3, kernel_size=(1, 5), stride=(1, 1), padding=(0, (5 // 2) * 2),
+            nn.Conv2d(num_features // 3, num_features // 3, kernel_size=(1, 5), stride=(1, 1),
+                      padding=(0, (5 // 2) * 2),
                       groups=num_features // 3, dilation=2),
-            nn.Conv2d(num_features // 3, num_features // 3, kernel_size=(5, 1), stride=(1, 1), padding=((5 // 2) * 2, 0),
+            nn.Conv2d(num_features // 3, num_features // 3, kernel_size=(5, 1), stride=(1, 1),
+                      padding=((5 // 2) * 2, 0),
                       groups=num_features // 3, dilation=2),
             nn.Conv2d(num_features // 3, num_features // 3, 1, 1, 0)
         )
@@ -244,19 +249,39 @@ class ADFM(nn.Module):
 
 
 class ResGroup(nn.Module):
-    def __init__(self, n_resblocks, n_feats, res_scale=1.0):
+    """
+    Residual Group Module.
+
+    This module consists of a series of MLDAM blocks followed by an ADFM block.
+
+    Args:
+        num_resblocks (int): Number of MLDAM blocks.
+        num_features (int): Number of input and output features.
+        res_scale (float): Residual scaling factor. Default: 1.0.
+    """
+
+    def __init__(self, num_resblocks, num_features, res_scale=1.0):
         super(ResGroup, self).__init__()
         self.body = nn.ModuleList([
-            MLDAM(n_feats) \
-            for _ in range(n_resblocks)])
+            MLDAM(num_features) for _ in range(num_resblocks)])
 
-        self.body_t = ADFM(in_channels=n_feats, out_channels=n_feats)
+        self.body_t = ADFM(in_channels=num_features, out_channels=num_features)
 
     def forward(self, x):
+        """
+        Forward pass of the ResGroup module.
+
+        Args:
+            x (torch.Tensor): Input tensor with shape (batch_size, num_features, height, width).
+
+        Returns:
+            torch.Tensor: Output tensor with the same shape as the input.
+        """
         res = x.clone()
 
-        for i, block in enumerate(self.body):
+        for block in self.body:
             res = block(res)
+
         x = self.body_t(res) + x
 
         return x
@@ -274,27 +299,27 @@ class MeanShift(nn.Conv2d):
             p.requires_grad = False
 
 
-# @ARCH_REGISTRY.register()
+@ARCH_REGISTRY.register()
 class MLDAN(nn.Module):
-    def __init__(self, n_resblocks=5, n_resgroups=1, n_colors=3, n_feats=48, scale=3, res_scale=1.0):
+    def __init__(self, num_resblocks=5, num_resgroups=1, in_chans=3, num_features=48, scale=3, res_scale=1.0):
         super(MLDAN, self).__init__()
 
-        self.n_resgroups = n_resgroups
+        self.num_resgroups = num_resgroups
         self.sub_mean = MeanShift(1.0)
-        self.head = nn.Conv2d(n_colors, n_feats, 3, 1, 1)
+        self.head = nn.Conv2d(in_chans, num_features, 3, 1, 1)
 
         # define body module
         self.body = nn.ModuleList([
             ResGroup(
-                n_resblocks, n_feats, res_scale=res_scale)
-            for i in range(n_resgroups)])
+                num_resblocks, num_features, res_scale=res_scale)
+            for i in range(num_resgroups)])
 
-        if self.n_resgroups > 1:
-            self.body_t = nn.Conv2d(n_feats, n_feats, 3, 1, 1)
+        if self.num_resgroups > 1:
+            self.body_t = nn.Conv2d(num_features, num_features, 3, 1, 1)
 
         # define tail module
         self.tail = nn.Sequential(
-            nn.Conv2d(n_feats, n_colors * (scale ** 2), 3, 1, 1),
+            nn.Conv2d(num_features, in_chans * (scale ** 2), 3, 1, 1),
             nn.PixelShuffle(scale)
         )
         self.add_mean = MeanShift(1.0, sign=1)
@@ -305,7 +330,7 @@ class MLDAN(nn.Module):
         res = x
         for i in self.body:
             res = i(res)
-        if self.n_resgroups > 1:
+        if self.num_resgroups > 1:
             res = self.body_t(res) + x
         x = self.tail(res)
         x = self.add_mean(x)
@@ -336,14 +361,3 @@ class MLDAN(nn.Module):
             missing = set(own_state.keys()) - set(state_dict.keys())
             if len(missing) > 0:
                 raise KeyError('missing keys in state_dict: "{}"'.format(missing))
-
-
-if __name__ == '__main__':
-    input_images = (torch.randn(4, 3, 48, 48))
-    print(input_images.shape)
-    model = MLDAN(scale=4, n_resblocks=24, n_resgroups=1, n_colors=3, n_feats=60, res_scale=1.0)
-    out_images = model(input_images)
-    flops, params = profile(model, (input_images,))
-    print("Mult-Adds: {:.2f} GFlops".format(flops / 1e9))
-    print('params: ', params)
-    print(out_images.shape)
