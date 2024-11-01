@@ -65,7 +65,7 @@ class SGFM(nn.Module):
 
     def forward(self, x):
         """
-        Forward pass of the SGFM module.
+        Forward pass of the SGFM.
 
         Args:
             x (torch.Tensor): Input tensor with shape (batch_size, num_features, height, width).
@@ -153,7 +153,7 @@ class MLDA(nn.Module):
 
     def forward(self, x):
         """
-        Forward pass of the MLDA module.
+        Forward pass of the MLDA.
 
         Args:
             x (torch.Tensor): Input tensor with shape (batch_size, num_features, height, width).
@@ -176,15 +176,31 @@ class MLDA(nn.Module):
 
 # MLDAM
 class MLDAM(nn.Module):
-    def __init__(
-            self, n_feats):
+    """
+    Multiscale Large Kernel Decomposition Attention Module (MLDAM).
+
+    This module combines the MLDA and SGFM modules to process the input tensor.
+
+    Args:
+        num_features (int): Number of input features.
+    """
+
+    def __init__(self, num_features):
         super().__init__()
 
-        self.MLDA = MLDA(num_features=n_feats)
-
-        self.SGFM = SGFM(num_features=n_feats)
+        self.MLDA = MLDA(num_features=num_features)  # Initialize the MLDA module
+        self.SGFM = SGFM(num_features=num_features)  # Initialize the SGFM module
 
     def forward(self, x):
+        """
+        Forward pass of the MLDAM.
+
+        Args:
+            x (torch.Tensor): Input tensor with shape (batch_size, num_features, height, width).
+
+        Returns:
+            torch.Tensor: Output tensor with the same shape as the input.
+        """
         x = self.MLDA(x)
         x = self.SGFM(x)
         return x
@@ -192,6 +208,17 @@ class MLDAM(nn.Module):
 
 # ADFM
 class ADFM(nn.Module):
+    """
+    Anatomical-aware Dynamic Fusion Module (ADFM).
+
+    This module combines pixel-wise convolution, offset generation, and deformable convolution to process the input tensor.
+
+    Args:
+        in_channels (int): Number of input channels.
+        out_channels (int): Number of output channels.
+        kernel_size (int): Size of the convolutional kernel. Default: 3.
+    """
+
     def __init__(self, in_channels, out_channels, kernel_size=3):
         super(ADFM, self).__init__()
         self.pixel_conv1 = nn.Conv2d(out_channels, out_channels, kernel_size=1)
@@ -200,6 +227,15 @@ class ADFM(nn.Module):
         self.pixel_conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=1)
 
     def forward(self, x):
+        """
+        Forward pass of the ADFM.
+
+        Args:
+            x (torch.Tensor): Input tensor with shape (batch_size, in_channels, height, width).
+
+        Returns:
+            torch.Tensor: Output tensor with the same shape as the input.
+        """
         x = self.pixel_conv1(x)
         offset = self.offset_conv(x)
         x = self.deform_conv(x, offset)
