@@ -1,15 +1,10 @@
 # # -*- coding: utf-8 -*-
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from basicsr.utils.registry import ARCH_REGISTRY
 from thop import profile
 from torchvision.ops import DeformConv2d
 
-
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
 
 class LayerNorm(nn.Module):
     """
@@ -48,21 +43,36 @@ class LayerNorm(nn.Module):
         return x
 
 
-
 class SGFM(nn.Module):
-    def __init__(self, n_feats):
+    """
+    Spatial-Gated Feature Modulation (SGFM) module.
+
+    Args:
+        num_features (int): Number of input features.
+    """
+
+    def __init__(self, num_features):
         super().__init__()
-        i_feats = n_feats * 2
+        intermediate_features = num_features * 2
 
-        self.Conv1 = nn.Conv2d(n_feats, i_feats, 1, 1, 0)
+        self.Conv1 = nn.Conv2d(num_features, intermediate_features, 1, 1, 0)
         self.act_layer = nn.GELU()
-        self.DWConv1 = nn.Conv2d(n_feats, n_feats, 7, 1, 7 // 2, groups=n_feats)
-        self.Conv2 = nn.Conv2d(n_feats, n_feats, 1, 1, 0)
+        self.DWConv1 = nn.Conv2d(num_features, num_features, 7, 1, 7 // 2, groups=num_features)
+        self.Conv2 = nn.Conv2d(num_features, num_features, 1, 1, 0)
 
-        self.norm = LayerNorm(n_feats, format='BCHW')
-        self.scale = nn.Parameter(torch.zeros((1, n_feats, 1, 1)), requires_grad=True)
+        self.norm = LayerNorm(num_features, format='BCHW')
+        self.scale = nn.Parameter(torch.zeros((1, num_features, 1, 1)), requires_grad=True)
 
     def forward(self, x):
+        """
+        Forward pass of the SGFM module.
+
+        Args:
+            x (torch.Tensor): Input tensor with shape (batch_size, num_features, height, width).
+
+        Returns:
+            torch.Tensor: Output tensor with the same shape as the input.
+        """
         shortcut = x.clone()
         x = self.Conv1(self.norm(x))
         x = self.act_layer(x)
@@ -149,7 +159,7 @@ class MLDAM(nn.Module):
 
         self.MLDA = MLDA(n_feats)
 
-        self.SGFM = SGFM(n_feats)
+        self.SGFM = SGFM(num_features=n_feats)
 
     def forward(self, x):
         x = self.MLDA(x)
