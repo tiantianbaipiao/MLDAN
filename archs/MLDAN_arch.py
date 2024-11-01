@@ -3,27 +3,28 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from basicsr.utils.registry import ARCH_REGISTRY
+from thop import profile
 from torchvision.ops import DeformConv2d
 
 
 class LayerNorm(nn.Module):
-    def __init__(self, normalized_shape, eps=1e-6, data_format="channels_last"):
+    def __init__(self, shape, eps=1e-6, format="channels_last"):
         super().__init__()
-        self.weight = nn.Parameter(torch.ones(normalized_shape))
-        self.bias = nn.Parameter(torch.zeros(normalized_shape))
+        self.weight = nn.Parameter(torch.ones(shape))
+        self.bias = nn.Parameter(torch.zeros(shape))
         self.eps = eps
-        self.data_format = data_format
-        if self.data_format not in ["channels_last", "channels_first"]:
+        self.format = format
+        if self.format not in ["channels_last", "channels_first"]:
             raise NotImplementedError
-        self.normalized_shape = (normalized_shape,)
+        self.shape = (shape,)
 
     def forward(self, x):
-        if self.data_format == "channels_last":
-            return F.layer_norm(x, self.normalized_shape, self.weight, self.bias, self.eps)
-        elif self.data_format == "channels_first":
-            u = x.mean(1, keepdim=True)
-            s = (x - u).pow(2).mean(1, keepdim=True)
-            x = (x - u) / torch.sqrt(s + self.eps)
+        if self.format == "channels_last":
+            return F.layer_norm(x, self.shape, self.weight, self.bias, self.eps)
+        elif self.format == "channels_first":
+            mean = x.mean(1, keepdim=True)
+            var = (x - mean).pow(2).mean(1, keepdim=True)
+            x = (x - mean) / torch.sqrt(var + self.eps)
             x = self.weight[:, None, None] * x + self.bias[:, None, None]
             return x
 
@@ -38,7 +39,7 @@ class SGFM(nn.Module):
         self.DWConv1 = nn.Conv2d(n_feats, n_feats, 7, 1, 7 // 2, groups=n_feats)
         self.Conv2 = nn.Conv2d(n_feats, n_feats, 1, 1, 0)
 
-        self.norm = LayerNorm(n_feats, data_format='channels_first')
+        self.norm = LayerNorm(n_feats, format='channels_first')
         self.scale = nn.Parameter(torch.zeros((1, n_feats, 1, 1)), requires_grad=True)
 
     def forward(self, x):
@@ -60,7 +61,7 @@ class MLDA(nn.Module):
         self.n_feats = n_feats
         self.i_feats = i_feats
 
-        self.norm = LayerNorm(n_feats, data_format='channels_first')
+        self.norm = LayerNorm(n_feats, format='channels_first')
         self.scale = nn.Parameter(torch.zeros((1, n_feats, 1, 1)), requires_grad=True)
 
         # Multiscale Large Kernel Decomposition Attention
@@ -135,6 +136,7 @@ class MLDAM(nn.Module):
         x = self.SGFM(x)
         return x
 
+
 # ADFM
 class ADFM(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size=3):
@@ -183,7 +185,7 @@ class MeanShift(nn.Conv2d):
             p.requires_grad = False
 
 
-@ARCH_REGISTRY.register()
+# @ARCH_REGISTRY.register()
 class MLDAN(nn.Module):
     def __init__(self, n_resblocks=5, n_resgroups=1, n_colors=3, n_feats=48, scale=3, res_scale=1.0):
         super(MLDAN, self).__init__()
@@ -219,6 +221,7 @@ class MLDAN(nn.Module):
         x = self.tail(res)
         x = self.add_mean(x)
         return x
+
     def load_state_dict(self, state_dict, strict=False):
         own_state = self.state_dict()
         for name, param in state_dict.items():
@@ -244,3 +247,14 @@ class MLDAN(nn.Module):
             missing = set(own_state.keys()) - set(state_dict.keys())
             if len(missing) > 0:
                 raise KeyError('missing keys in state_dict: "{}"'.format(missing))
+
+
+if __name__ == '__main__':
+    input_images = (torch.randn(4, 3, 48, 48))
+    print(input_images.shape)
+    model = MLDAN(scale=4, n_resblocks=24, n_resgroups=1, n_colors=3, n_feats=60, res_scale=1.0)
+    out_images = model(input_images)
+    flops, params = profile(model, (input_images,))
+    print("Mult-Adds: {:.2f} GFlops".format(flops / 1e9))
+    print('params: ', params)
+    print(out_images.shape)
