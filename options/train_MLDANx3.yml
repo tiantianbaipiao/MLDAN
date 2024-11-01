@@ -38,8 +38,8 @@ datasets:
 network_g:
   type: MLDAN
   scale: 3 #or 3/4
-  n_resblocks: 5 # 5 for MLDAN; 24 for MLDAN+
-  n_resgroups: 1
+  num_resblocks: 5 # 5 for MLDAN; 24 for MLDAN+
+  num_resgroups: 1
   n_feats: 48   # 48 for MLDAN; 60 for MLDAN+
 
 # path
