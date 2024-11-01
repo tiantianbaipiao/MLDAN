@@ -8,7 +8,7 @@
 
 
 ## Implementary Details
-**Network architecture**: Group number (n_resgroups): **1 for simplicity**, MLDAM number (n_resblocks): **5/24**, channel width (n_feats): **48/60** for **MLDAN/MLDAN+**.
+**Network architecture**: Group number (num_resgroups): **1 for simplicity**, MLDAM number (num_resblocks): **5/24**, channel width (num_features): **48/60** for **MLDAN/MLDAN+**.
 <p align="center">
     <img src="images/MLDAN_arch.png" width="960"> <br /></p>
     <em> The proposed method consists of three main components: the Multi-Scale Large Kernel Decomposition Attention Module(MLDAM), the Simple Gated Feedforward Module(SGFM), and the Anatomy-Aware Dynamic Fusion Module(ADFM). </em>
