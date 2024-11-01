@@ -8,25 +8,22 @@ from torchvision.ops import DeformConv2d
 
 
 class LayerNorm(nn.Module):
-    def __init__(self, shape, eps=1e-6, format="channels_last"):
+    def __init__(self, shape, eps=1e-6, format="channels_first"):
         super().__init__()
         self.weight = nn.Parameter(torch.ones(shape))
         self.bias = nn.Parameter(torch.zeros(shape))
         self.eps = eps
         self.format = format
-        if self.format not in ["channels_last", "channels_first"]:
-            raise NotImplementedError
+        if self.format != "channels_first":
+            raise NotImplementedError("Only 'channels_first' format is supported")
         self.shape = (shape,)
 
     def forward(self, x):
-        if self.format == "channels_last":
-            return F.layer_norm(x, self.shape, self.weight, self.bias, self.eps)
-        elif self.format == "channels_first":
-            mean = x.mean(1, keepdim=True)
-            var = (x - mean).pow(2).mean(1, keepdim=True)
-            x = (x - mean) / torch.sqrt(var + self.eps)
-            x = self.weight[:, None, None] * x + self.bias[:, None, None]
-            return x
+        mean = x.mean(1, keepdim=True)
+        var = (x - mean).pow(2).mean(1, keepdim=True)
+        x = (x - mean) / torch.sqrt(var + self.eps)
+        x = self.weight[:, None, None] * x + self.bias[:, None, None]
+        return x
 
 
 class SGFM(nn.Module):
