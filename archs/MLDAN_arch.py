@@ -84,69 +84,92 @@ class SGFM(nn.Module):
 
 
 class MLDA(nn.Module):
-    def __init__(self, n_feats):
+    """
+    Multiscale Large Kernel Decomposition Attention (MLDA) module.
+
+    Args:
+        num_features (int): Number of input features.
+    LSKA:
+        https://github.com/StevenLauHKHK/Large-Separable-Kernel-Attention.
+    """
+
+    def __init__(self, num_features):
         super().__init__()
-        i_feats = 2 * n_feats
+        intermediate_features = 2 * num_features
 
-        self.n_feats = n_feats
-        self.i_feats = i_feats
+        self.num_features = num_features
+        self.intermediate_features = intermediate_features
 
-        self.norm = LayerNorm(n_feats, format='BCHW')
-        self.scale = nn.Parameter(torch.zeros((1, n_feats, 1, 1)), requires_grad=True)
+        self.norm = LayerNorm(num_features, format='BCHW')
+        self.scale = nn.Parameter(torch.zeros((1, num_features, 1, 1)), requires_grad=True)
 
         # Multiscale Large Kernel Decomposition Attention
-        self.LDA7 = nn.Sequential(
-            nn.Conv2d(n_feats // 3, n_feats // 3, kernel_size=(1, 7), stride=(1, 1), padding=(0, 7 // 2),
-                      groups=n_feats // 3),
-            nn.Conv2d(n_feats // 3, n_feats // 3, kernel_size=(7, 1), stride=(1, 1), padding=(7 // 2, 0),
-                      groups=n_feats // 3),
-            nn.Conv2d(n_feats // 3, n_feats // 3, kernel_size=(1, 9), stride=(1, 1), padding=(0, (9 // 2) * 4),
-                      groups=n_feats // 3, dilation=4),
-            nn.Conv2d(n_feats // 3, n_feats // 3, kernel_size=(9, 1), stride=(1, 1), padding=((9 // 2) * 4, 0),
-                      groups=n_feats // 3, dilation=4),
-            nn.Conv2d(n_feats // 3, n_feats // 3, 1, 1, 0)
+        self.LSKA7 = nn.Sequential(
+            nn.Conv2d(num_features // 3, num_features // 3, kernel_size=(1, 7), stride=(1, 1), padding=(0, 7 // 2),
+                      groups=num_features // 3),
+            nn.Conv2d(num_features // 3, num_features // 3, kernel_size=(7, 1), stride=(1, 1), padding=(7 // 2, 0),
+                      groups=num_features // 3),
+            nn.Conv2d(num_features // 3, num_features // 3, kernel_size=(1, 9), stride=(1, 1), padding=(0, (9 // 2) * 4),
+                      groups=num_features // 3, dilation=4),
+            nn.Conv2d(num_features // 3, num_features // 3, kernel_size=(9, 1), stride=(1, 1), padding=((9 // 2) * 4, 0),
+                      groups=num_features // 3, dilation=4),
+            nn.Conv2d(num_features // 3, num_features // 3, 1, 1, 0)
         )
-        self.LDA5 = nn.Sequential(
-            nn.Conv2d(n_feats // 3, n_feats // 3, kernel_size=(1, 5), stride=(1, 1), padding=(0, 5 // 2),
-                      groups=n_feats // 3),
-            nn.Conv2d(n_feats // 3, n_feats // 3, kernel_size=(5, 1), stride=(1, 1), padding=(5 // 2, 0),
-                      groups=n_feats // 3),
-            nn.Conv2d(n_feats // 3, n_feats // 3, kernel_size=(1, 7), stride=(1, 1), padding=(0, (7 // 2) * 3),
-                      groups=n_feats // 3, dilation=3),
-            nn.Conv2d(n_feats // 3, n_feats // 3, kernel_size=(7, 1), stride=(1, 1), padding=((7 // 2) * 3, 0),
-                      groups=n_feats // 3, dilation=3),
-            nn.Conv2d(n_feats // 3, n_feats // 3, 1, 1, 0)
+        self.LSKA5 = nn.Sequential(
+            nn.Conv2d(num_features // 3, num_features // 3, kernel_size=(1, 5), stride=(1, 1), padding=(0, 5 // 2),
+                      groups=num_features // 3),
+            nn.Conv2d(num_features // 3, num_features // 3, kernel_size=(5, 1), stride=(1, 1), padding=(5 // 2, 0),
+                      groups=num_features // 3),
+            nn.Conv2d(num_features // 3, num_features // 3, kernel_size=(1, 7), stride=(1, 1), padding=(0, (7 // 2) * 3),
+                      groups=num_features // 3, dilation=3),
+            nn.Conv2d(num_features // 3, num_features // 3, kernel_size=(7, 1), stride=(1, 1), padding=((7 // 2) * 3, 0),
+                      groups=num_features // 3, dilation=3),
+            nn.Conv2d(num_features // 3, num_features // 3, 1, 1, 0)
         )
-        self.LDA3 = nn.Sequential(
-            nn.Conv2d(n_feats // 3, n_feats // 3, kernel_size=(1, 3), stride=(1, 1), padding=(0, 1),
-                      groups=n_feats // 3),
-            nn.Conv2d(n_feats // 3, n_feats // 3, kernel_size=(3, 1), stride=(1, 1), padding=(1, 0),
-                      groups=n_feats // 3),
-            nn.Conv2d(n_feats // 3, n_feats // 3, kernel_size=(1, 5), stride=(1, 1), padding=(0, (5 // 2) * 2),
-                      groups=n_feats // 3, dilation=2),
-            nn.Conv2d(n_feats // 3, n_feats // 3, kernel_size=(5, 1), stride=(1, 1), padding=((5 // 2) * 2, 0),
-                      groups=n_feats // 3, dilation=2),
-            nn.Conv2d(n_feats // 3, n_feats // 3, 1, 1, 0)
+        self.LSKA3 = nn.Sequential(
+            nn.Conv2d(num_features // 3, num_features // 3, kernel_size=(1, 3), stride=(1, 1), padding=(0, 1),
+                      groups=num_features // 3),
+            nn.Conv2d(num_features // 3, num_features // 3, kernel_size=(3, 1), stride=(1, 1), padding=(1, 0),
+                      groups=num_features // 3),
+            nn.Conv2d(num_features // 3, num_features // 3, kernel_size=(1, 5), stride=(1, 1), padding=(0, (5 // 2) * 2),
+                      groups=num_features // 3, dilation=2),
+            nn.Conv2d(num_features // 3, num_features // 3, kernel_size=(5, 1), stride=(1, 1), padding=((5 // 2) * 2, 0),
+                      groups=num_features // 3, dilation=2),
+            nn.Conv2d(num_features // 3, num_features // 3, 1, 1, 0)
         )
         # (r + n) × (r + n) dilation-aware depthwise convolutions
-        self.X3 = nn.Conv2d(n_feats // 3, n_feats // 3, 3, 1, 1, groups=n_feats // 3)
-        self.X5 = nn.Conv2d(n_feats // 3, n_feats // 3, 5, 1, 5 // 2, groups=n_feats // 3)
-        self.X7 = nn.Conv2d(n_feats // 3, n_feats // 3, 7, 1, 7 // 2, groups=n_feats // 3)
+        # r=2, n=1
+        self.Dw_2 = nn.Conv2d(num_features // 3, num_features // 3, 3, 1, 1, groups=num_features // 3)
+        # r=3, n=2
+        self.Dw_3 = nn.Conv2d(num_features // 3, num_features // 3, 5, 1, 5 // 2, groups=num_features // 3)
+        # r=4, n=3
+        self.Dw_4 = nn.Conv2d(num_features // 3, num_features // 3, 7, 1, 7 // 2, groups=num_features // 3)
 
         self.proj_first = nn.Sequential(
-            nn.Conv2d(n_feats, i_feats, 1, 1, 0))
+            nn.Conv2d(num_features, intermediate_features, 1, 1, 0))
 
         self.proj_last = nn.Sequential(
-            nn.Conv2d(n_feats, n_feats, 1, 1, 0))
+            nn.Conv2d(num_features, num_features, 1, 1, 0))
 
     def forward(self, x):
+        """
+        Forward pass of the MLDA module.
+
+        Args:
+            x (torch.Tensor): Input tensor with shape (batch_size, num_features, height, width).
+
+        Returns:
+            torch.Tensor: Output tensor with the same shape as the input.
+        """
         shortcut = x.clone()
         x = self.norm(x)
         x = self.proj_first(x)
         a, x = torch.chunk(x, 2, dim=1)
         a_1, a_2, a_3 = torch.chunk(a, 3, dim=1)
-        a = torch.cat([self.LDA3(a_1) * self.X3(a_1), self.LDA5(a_2) * self.X5(a_2), self.LDA7(a_3) * self.X7(a_3)],
-                      dim=1)
+        LDA3 = self.LSKA3(a_1) * self.Dw_2(a_1)
+        LDA5 = self.LSKA5(a_1) * self.Dw_3(a_2)
+        LDA7 = self.LSKA7(a_1) * self.Dw_4(a_3)
+        a = torch.cat([LDA3, LDA5, LDA7], dim=1)
         x = self.proj_last(x * a) * self.scale + shortcut
         return x
 
@@ -157,7 +180,7 @@ class MLDAM(nn.Module):
             self, n_feats):
         super().__init__()
 
-        self.MLDA = MLDA(n_feats)
+        self.MLDA = MLDA(num_features=n_feats)
 
         self.SGFM = SGFM(num_features=n_feats)
 
