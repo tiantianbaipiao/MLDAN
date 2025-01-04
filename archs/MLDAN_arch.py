@@ -2,7 +2,7 @@
 import torch
 import torch.nn as nn
 from basicsr.utils.registry import ARCH_REGISTRY
-from torchvision.ops import DeformConv2d
+from archs.DeformConv2d import DeformConv2d
 
 
 class LayerNorm(nn.Module):
@@ -216,7 +216,7 @@ class ADFM(nn.Module):
     """
     Anatomical-aware Dynamic Fusion Module (ADFM).
 
-    This module combines pixel-wise convolution, offset generation, and deformable convolution to process the input tensor.
+    This module combines pixel-wise convolution, deformable convolution to process the input tensor.
 
     Args:
         in_channels (int): Number of input channels.
@@ -227,8 +227,7 @@ class ADFM(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size=3):
         super(ADFM, self).__init__()
         self.pixel_conv1 = nn.Conv2d(out_channels, out_channels, kernel_size=1)
-        self.offset_conv = nn.Conv2d(in_channels, 2 * kernel_size * kernel_size, kernel_size=kernel_size, padding=1)
-        self.deform_conv = DeformConv2d(in_channels, out_channels, kernel_size=kernel_size, padding=1)
+        self.deform_conv = DeformConv2d(in_channels, out_channels, kernel_size=kernel_size)
         self.pixel_conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=1)
 
     def forward(self, x):
@@ -242,8 +241,7 @@ class ADFM(nn.Module):
             torch.Tensor: Output tensor with the same shape as the input.
         """
         x = self.pixel_conv1(x)
-        offset = self.offset_conv(x)
-        x = self.deform_conv(x, offset)
+        x = self.deform_conv(x)
         x = self.pixel_conv2(x)
         return x
 
@@ -299,7 +297,7 @@ class MeanShift(nn.Conv2d):
             p.requires_grad = False
 
 
-@ARCH_REGISTRY.register()
+# @ARCH_REGISTRY.register()
 class MLDAN(nn.Module):
     def __init__(self, num_resblocks=5, num_resgroups=1, in_chans=3, num_features=48, scale=3, res_scale=1.0):
         super(MLDAN, self).__init__()
